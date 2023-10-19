@@ -1,3 +1,4 @@
-output_qa/*
-output_swag/*
 data/*
+output/*
+result/*
+__pycache__/*
