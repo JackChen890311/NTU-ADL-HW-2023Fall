@@ -1,28 +1,17 @@
 import json
 import torch
-import numpy as np
-import pandas as pd
-import evaluate
-import accelerate
 from tqdm import tqdm
 from datasets import load_dataset
 from itertools import chain
 from utils_mc import parse_args, DataCollatorForMultipleChoice
 from torch.utils.data import DataLoader
 
-import transformers
 from transformers import (
-    CONFIG_MAPPING,
-    MODEL_MAPPING,
     AutoConfig,
     AutoModelForMultipleChoice,
     AutoTokenizer,
-    PreTrainedTokenizerBase,
-    SchedulerType,
     default_data_collator,
-    get_scheduler,
 )
-from transformers.utils import PaddingStrategy, check_min_version, send_example_telemetry
 
 
 def inference():
@@ -60,7 +49,6 @@ def inference():
     def preprocess_function(examples):
         question = [[question] * 4 for question in examples['question']]
         answer = [[context[i] for i in options] for options in examples['paragraphs']]
-        # labels = [examples['paragraphs'][i].index(examples['relevant'][i]) for i in range(len(examples['id']))]
         labels = [0] * len(examples['question'])
 
         # Flatten out
@@ -89,41 +77,35 @@ def inference():
     data_collator = default_data_collator if args.pad_to_max_length else DataCollatorForMultipleChoice(tokenizer, pad_to_multiple_of=None)
     test_dataloader = DataLoader(test_dataset, collate_fn=data_collator, batch_size=args.per_device_eval_batch_size)
     
-    # device = accelerate.device
     device = torch.device('cuda')
     model = model.to(device)
 
-    # model, optimizer, train_dataloader, eval_dataloader, lr_scheduler = accelerator.prepare(
-    #     model, optimizer, train_dataloader, eval_dataloader, lr_scheduler
-    # )
+
+    print("===== Start Inference =====")
 
     model.eval()
     result = torch.zeros((0),dtype=int)
-    for step, batch in tqdm(enumerate(test_dataloader)):
+    for batch in tqdm(test_dataloader):
         for k in batch.keys():
-            # print(k)
-            # print(batch[k].shape)
             batch[k] = batch[k].to(device)
         with torch.no_grad():
             outputs = model(**batch)
         predictions = outputs.logits.argmax(dim=-1)
         result = torch.cat((result, predictions.cpu()))
-        # print(predictions)
-        # break
-    
-    print(result.shape)
-    df = pd.DataFrame({'Prediction':result.numpy()})
-    df.to_csv('result/mc_out.csv')
+
+    result_numpy = result.numpy()
     
     with open(args.test_file, 'r') as f:
         result_json = json.load(f)
     
     assert len(result_json) == result.shape[0]
     for idx in range(len(result)):
-        result_json[idx]['relevant'] = int(result_json[idx]['paragraphs'][int(df.Prediction[idx])])
+        result_json[idx]['relevant'] = int(result_json[idx]['paragraphs'][int(result_numpy[idx])])
     
-    with open('result/test_mc_out.json', 'w', encoding='utf-8') as f:
+    with open(args.test_output, 'w', encoding='utf-8') as f:
         json.dump(result_json, f, ensure_ascii=False)
+
+    print("===== Inference Done! Result saved at", args.test_output,'=====')
 
 if __name__ == "__main__":
     inference()

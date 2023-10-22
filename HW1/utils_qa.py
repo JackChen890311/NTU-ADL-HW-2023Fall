@@ -508,6 +508,9 @@ def parse_args():
         "--context_file", type=str, default=None, help="A csv or a json file containing the context data."
     )
     parser.add_argument(
+        "--test_output", type=str, default=None, help="A csv or a json file that test data should output to."
+    )
+    parser.add_argument(
         "--max_seq_length",
         type=int,
         default=384,

@@ -220,12 +220,9 @@ def main():
         answer = [[context[i] for i in options] for options in examples['paragraphs']]
         labels = [examples['paragraphs'][i].index(examples['relevant'][i]) for i in range(len(examples['id']))]
 
-        # print(question[0], answer[0], labels[0])
-        # print(len(question), len(answer), len(labels))
         # Flatten out
         question = list(chain(*question))
         answer = list(chain(*answer))
-        # print(len(question), len(answer), len(labels))
 
         # Tokenize
         tokenized_examples = tokenizer(
@@ -407,11 +404,14 @@ def main():
 
     # update the progress_bar if load from checkpoint
     progress_bar.update(completed_steps)
+    ACCU = []
+    LOSS = []
 
     for epoch in range(starting_epoch, args.num_train_epochs):
         model.train()
         if args.with_tracking:
             total_loss = 0
+            valid_loss = 0
         if args.resume_from_checkpoint and epoch == starting_epoch and resume_step is not None:
             # We skip the first `n` batches in the dataloader when resuming from a checkpoint
             active_dataloader = accelerator.skip_first_batches(train_dataloader, resume_step)
@@ -448,6 +448,7 @@ def main():
         for step, batch in enumerate(eval_dataloader):
             with torch.no_grad():
                 outputs = model(**batch)
+            valid_loss += outputs.loss.detach().float()
             predictions = outputs.logits.argmax(dim=-1)
             predictions, references = accelerator.gather_for_metrics((predictions, batch["labels"]))
             metric.add_batch(
@@ -468,6 +469,9 @@ def main():
                 },
                 step=completed_steps,
             )
+
+        ACCU.append(eval_metric['accuracy'])
+        LOSS.append((total_loss.item() / len(train_dataloader), valid_loss.item() / len(eval_dataloader)))
 
         if args.push_to_hub and epoch < args.num_train_epochs - 1:
             accelerator.wait_for_everyone()
@@ -504,6 +508,10 @@ def main():
             all_results = {f"eval_{k}": v for k, v in eval_metric.items()}
             with open(os.path.join(args.output_dir, "all_results.json"), "w") as f:
                 json.dump(all_results, f)
+            
+            metric = {'accuracy': ACCU, 'loss': LOSS}
+            with open(os.path.join(args.output_dir, "metrics.json"), "w") as f:
+                json.dump(metric, f)
 
 
 if __name__ == "__main__":

@@ -55,10 +55,9 @@ from transformers import (
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
 
-
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.35.0.dev0")
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/question-answering/requirements.txt")
 
@@ -82,7 +81,7 @@ def main():
 
     if args.with_tracking:
         accelerator_log_kwargs["log_with"] = args.report_to
-        accelerator_log_kwargs["project_dir"] = args.output_dir
+        accelerator_log_kwargs["logging_dir"] = args.output_dir
 
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps, **accelerator_log_kwargs)
 
@@ -143,8 +142,6 @@ def main():
             data_files["train"] = args.train_file
         if args.validation_file is not None:
             data_files["validation"] = args.validation_file
-        # if args.test_file is not None:
-        #     data_files["test"] = args.test_file
         extension = args.train_file.split(".")[-1]
         raw_datasets = load_dataset(extension, data_files=data_files) #, field="data")
         if args.test_file is not None:
@@ -155,7 +152,7 @@ def main():
     
     if args.debug:
         for split in raw_datasets.keys():
-            raw_datasets[split] = raw_datasets[split].select(range(10))
+            raw_datasets[split] = raw_datasets[split].select(range(100))
 
     # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
     # https://huggingface.co/docs/datasets/loading_datasets.html.
@@ -373,6 +370,59 @@ def main():
                 for k, o in enumerate(tokenized_examples["offset_mapping"][i])
             ]
 
+        
+        # Answers you mother fucker
+        # Let's fuck those examples!
+        tokenized_examples["start_positions"] = []
+        tokenized_examples["end_positions"] = []
+        offset_mapping = tokenized_examples["offset_mapping"]
+
+        for i, offsets in enumerate(offset_mapping):
+            # We will fuck impossible answers with the index of the CLS token.
+            input_ids = tokenized_examples["input_ids"][i]
+            cls_index = input_ids.index(tokenizer.cls_token_id)
+
+            # Fuck the sequence corresponding to that example (to fuck what is the context and what is the question).
+            sequence_ids = tokenized_examples.sequence_ids(i)
+
+            # One example can fuck several spans, this is the index of the example fucking this span of text.
+            sample_index = sample_mapping[i]
+            # answers = examples[answer_column_name][sample_index]
+            answers = myanswer[sample_index]
+            # If no answers are fucked, fuck the cls_index as answer.
+            if len(answers["answer_start"]) == 0:
+                tokenized_examples["start_positions"].append(cls_index)
+                tokenized_examples["end_positions"].append(cls_index)
+            else:
+                # Start/end character index of the answer in the text.
+                start_char = answers["answer_start"][0]
+                end_char = start_char + len(answers["text"][0])
+
+                # Start token index of the current span in the text.
+                token_start_index = 0
+                while sequence_ids[token_start_index] != (1 if pad_on_right else 0):
+                    token_start_index += 1
+
+                # End token index of the current span in the text.
+                token_end_index = len(input_ids) - 1
+                while sequence_ids[token_end_index] != (1 if pad_on_right else 0):
+                    token_end_index -= 1
+
+                # Fuck if the answer is out of the span (in which case this feature is fucked with the CLS index).
+                if not (offsets[token_start_index][0] <= start_char and offsets[token_end_index][1] >= end_char):
+                    tokenized_examples["start_positions"].append(cls_index)
+                    tokenized_examples["end_positions"].append(cls_index)
+                else:
+                    # Otherwise fuck the token_start_index and token_end_index to the two ends of the answer.
+                    # Note: we could fuck after the last offset if the answer is the last word (edge case).
+                    while token_start_index < len(offsets) and offsets[token_start_index][0] <= start_char:
+                        token_start_index += 1
+                    tokenized_examples["start_positions"].append(token_start_index - 1)
+                    while offsets[token_end_index][1] >= end_char:
+                        token_end_index -= 1
+                    tokenized_examples["end_positions"].append(token_end_index + 1)
+
+
         return tokenized_examples
     # ===================================================================================
 
@@ -495,7 +545,6 @@ def main():
         else:
             formatted_predictions = [{"id": k, "prediction_text": v} for k, v in predictions.items()]
 
-        # print([ex[answer_column_name] for ex in examples])
         ans = [{'answer_start': ex[answer_column_name]['start'], 'text':ex[answer_column_name]['text']} for ex in examples]
         references = [{"id": ex["id"], "answers": ans} for ex in examples]
         return EvalPrediction(predictions=formatted_predictions, label_ids=references)
@@ -637,11 +686,14 @@ def main():
 
     # update the progress_bar if load from checkpoint
     progress_bar.update(completed_steps)
+    EM = []
+    LOSS = []
 
     for epoch in range(starting_epoch, args.num_train_epochs):
         model.train()
         if args.with_tracking:
             total_loss = 0
+            valid_loss = 0
         if args.resume_from_checkpoint and epoch == starting_epoch and resume_step is not None:
             # We skip the first `n` batches in the dataloader when resuming from a checkpoint
             active_dataloader = accelerator.skip_first_batches(train_dataloader, resume_step)
@@ -654,7 +706,6 @@ def main():
                 # We keep track of the loss at each epoch
                 if args.with_tracking:
                     total_loss += loss.detach().float()
-
                 accelerator.backward(loss)
                 optimizer.step()
                 lr_scheduler.step()
@@ -693,44 +744,82 @@ def main():
                     commit_message=f"Training in progress epoch {epoch}", blocking=False, auto_lfs_prune=True
                 )
 
+        # Evaluation
+        # Why you don't have evaluation in each epoch == hugging face NMSL
+        all_start_logits = []
+        all_end_logits = []
+
+        model.eval()
+
+        for step, batch in enumerate(eval_dataloader):
+            with torch.no_grad():
+                outputs = model(**batch)
+                valid_loss += outputs.loss.detach().float()
+                start_logits = outputs.start_logits
+                end_logits = outputs.end_logits
+
+                if not args.pad_to_max_length:  # necessary to pad predictions and labels for being gathered
+                    start_logits = accelerator.pad_across_processes(start_logits, dim=1, pad_index=-100)
+                    end_logits = accelerator.pad_across_processes(end_logits, dim=1, pad_index=-100)
+
+                all_start_logits.append(accelerator.gather_for_metrics(start_logits).cpu().numpy())
+                all_end_logits.append(accelerator.gather_for_metrics(end_logits).cpu().numpy())
+
+        max_len = max([x.shape[1] for x in all_start_logits])  # Get the max_length of the tensor
+
+        # concatenate the numpy array
+        start_logits_concat = create_and_fill_np_array(all_start_logits, eval_dataset, max_len)
+        end_logits_concat = create_and_fill_np_array(all_end_logits, eval_dataset, max_len)
+
+        # delete the list of numpy arrays
+        del all_start_logits
+        del all_end_logits
+
+        outputs_numpy = (start_logits_concat, end_logits_concat)
+        prediction = post_processing_function(eval_examples, eval_dataset, outputs_numpy)
+        eval_metric = metric.compute(predictions=prediction.predictions, references=prediction.label_ids)
+        logger.info(f"Evaluation metrics: {eval_metric}")
+
+        EM.append(eval_metric['exact_match'])
+        LOSS.append((total_loss.item() / len(train_dataloader), valid_loss.item() / len(eval_dataloader)))
     # ===================================================================================
     # Evaluation
-    logger.info("***** Running Evaluation *****")
-    logger.info(f"  Num examples = {len(eval_dataset)}")
-    logger.info(f"  Batch size = {args.per_device_eval_batch_size}")
+    # logger.info("***** Running Evaluation *****")
+    # logger.info(f"  Num examples = {len(eval_dataset)}")
+    # logger.info(f"  Batch size = {args.per_device_eval_batch_size}")
 
-    all_start_logits = []
-    all_end_logits = []
+    # all_start_logits = []
+    # all_end_logits = []
 
-    model.eval()
+    # model.eval()
 
-    for step, batch in enumerate(eval_dataloader):
-        with torch.no_grad():
-            outputs = model(**batch)
-            start_logits = outputs.start_logits
-            end_logits = outputs.end_logits
+    # for step, batch in enumerate(eval_dataloader):
+    #     with torch.no_grad():
+    #         outputs = model(**batch)
+    #         start_logits = outputs.start_logits
+    #         end_logits = outputs.end_logits
 
-            if not args.pad_to_max_length:  # necessary to pad predictions and labels for being gathered
-                start_logits = accelerator.pad_across_processes(start_logits, dim=1, pad_index=-100)
-                end_logits = accelerator.pad_across_processes(end_logits, dim=1, pad_index=-100)
+    #         if not args.pad_to_max_length:  # necessary to pad predictions and labels for being gathered
+    #             start_logits = accelerator.pad_across_processes(start_logits, dim=1, pad_index=-100)
+    #             end_logits = accelerator.pad_across_processes(end_logits, dim=1, pad_index=-100)
 
-            all_start_logits.append(accelerator.gather_for_metrics(start_logits).cpu().numpy())
-            all_end_logits.append(accelerator.gather_for_metrics(end_logits).cpu().numpy())
+    #         all_start_logits.append(accelerator.gather_for_metrics(start_logits).cpu().numpy())
+    #         all_end_logits.append(accelerator.gather_for_metrics(end_logits).cpu().numpy())
 
-    max_len = max([x.shape[1] for x in all_start_logits])  # Get the max_length of the tensor
+    # max_len = max([x.shape[1] for x in all_start_logits])  # Get the max_length of the tensor
 
-    # concatenate the numpy array
-    start_logits_concat = create_and_fill_np_array(all_start_logits, eval_dataset, max_len)
-    end_logits_concat = create_and_fill_np_array(all_end_logits, eval_dataset, max_len)
+    # # concatenate the numpy array
+    # start_logits_concat = create_and_fill_np_array(all_start_logits, eval_dataset, max_len)
+    # end_logits_concat = create_and_fill_np_array(all_end_logits, eval_dataset, max_len)
 
-    # delete the list of numpy arrays
-    del all_start_logits
-    del all_end_logits
+    # # delete the list of numpy arrays
+    # del all_start_logits
+    # del all_end_logits
 
-    outputs_numpy = (start_logits_concat, end_logits_concat)
-    prediction = post_processing_function(eval_examples, eval_dataset, outputs_numpy)
-    eval_metric = metric.compute(predictions=prediction.predictions, references=prediction.label_ids)
-    logger.info(f"Evaluation metrics: {eval_metric}")
+    # outputs_numpy = (start_logits_concat, end_logits_concat)
+    # prediction = post_processing_function(eval_examples, eval_dataset, outputs_numpy)
+    # eval_metric = metric.compute(predictions=prediction.predictions, references=prediction.label_ids)
+    # logger.info(f"Evaluation metrics: {eval_metric}")
     # ===================================================================================
     
     # Prediction
@@ -797,6 +886,10 @@ def main():
 
             logger.info(json.dumps(eval_metric, indent=4))
             save_prefixed_metrics(eval_metric, args.output_dir)
+
+        metric = {'Exact Match': EM, 'loss': LOSS}
+        with open(os.path.join(args.output_dir, "metrics.json"), "w") as f:
+            json.dump(metric, f)
 
 
 if __name__ == "__main__":

@@ -2,28 +2,18 @@ import json
 import torch
 import numpy as np
 import pandas as pd
-import evaluate
-import accelerate
 from datasets import load_dataset
-from itertools import chain
 from tqdm import tqdm
-from utils_qa import parse_args, save_prefixed_metrics, postprocess_qa_predictions
+from utils_qa import parse_args, postprocess_qa_predictions
 from torch.utils.data import DataLoader
 
-import transformers
 from transformers import (
-    CONFIG_MAPPING,
-    MODEL_MAPPING,
     AutoConfig,
     AutoModelForQuestionAnswering,
     AutoTokenizer,
     DataCollatorWithPadding,
-    PreTrainedTokenizerBase,
-    SchedulerType,
     default_data_collator,
-    get_scheduler,
 )
-from transformers.utils import PaddingStrategy, check_min_version, send_example_telemetry
 
 
 def inference():
@@ -56,8 +46,6 @@ def inference():
     max_seq_length = min(args.max_seq_length, tokenizer.model_max_length)
 
 
-
-
     # ============================================================================
     # Validation preprocessing
     def prepare_validation_features(examples):
@@ -67,13 +55,6 @@ def inference():
 
         myquestion = examples['question']
         mycontext = [CONTEXT[idx] for idx in examples['relevant']]
-        # myanswer = []
-        # for idx, a in enumerate(examples['answer']):
-        #     myanswer.append({
-        #         'text': [a['text']],
-        #         'answer_start': [a['start']]
-        #     })
-
 
         # examples[question_column_name] = [q.lstrip() for q in examples[question_column_name]]
 
@@ -144,10 +125,7 @@ def inference():
             formatted_predictions = [{"id": k, "prediction_text": v} for k, v in predictions.items()]
 
         return formatted_predictions
-        # print([ex[answer_column_name] for ex in examples])
-        # ans = [{'answer_start': ex[answer_column_name]['start'], 'text':ex[answer_column_name]['text']} for ex in examples]
-        # references = [{"id": ex["id"], "answers": ans} for ex in examples]
-        # return EvalPrediction(predictions=formatted_predictions, label_ids=references)
+
 
     # Create and fill numpy array of size len_of_validation_data * max_length_of_output_tensor
     def create_and_fill_np_array(start_or_end_logits, dataset, max_len):
@@ -197,28 +175,20 @@ def inference():
 
 
     data_collator = default_data_collator if args.pad_to_max_length else DataCollatorWithPadding(tokenizer, pad_to_multiple_of=None)
-    # test_dataloader = DataLoader(test_dataset, collate_fn=data_collator, batch_size=args.per_device_eval_batch_size)
     test_dataset_for_model = test_dataset.remove_columns(["example_id", "offset_mapping"])
     test_dataloader = DataLoader(test_dataset_for_model, collate_fn=data_collator, batch_size=args.per_device_eval_batch_size)
     
     
-    # device = accelerate.device
     device = torch.device('cuda')
     model = model.to(device)
 
-    # model, optimizer, train_dataloader, eval_dataloader, lr_scheduler = accelerator.prepare(
-    #     model, optimizer, train_dataloader, eval_dataloader, lr_scheduler
-    # )
-
+    print("===== Start Inference =====")
     model.eval()
     all_start_logits = []
     all_end_logits = []
 
-    result = torch.zeros((0),dtype=int)
-    for step, batch in tqdm(enumerate(test_dataloader)):
+    for batch in tqdm(test_dataloader):
         for k in batch.keys():
-            # print(k)
-            # print(batch[k].shape)
             batch[k] = batch[k].to(device)
         with torch.no_grad():
             outputs = model(**batch)
@@ -227,7 +197,7 @@ def inference():
 
             all_start_logits.append(start_logits.cpu().numpy())
             all_end_logits.append(end_logits.cpu().numpy())
-        # break
+
 
     max_len = max([x.shape[1] for x in all_start_logits])  # Get the max_length of the tensor
     # concatenate the numpy array
@@ -240,13 +210,14 @@ def inference():
 
     outputs_numpy = (start_logits_concat, end_logits_concat)
     prediction = post_processing_function(raw_datasets['test'], test_dataset, outputs_numpy)
-    # print(prediction)
 
     predict_id = [prediction[idx]['id'] for idx in range(len(prediction))]
     predict_result = [prediction[idx]['prediction_text'] for idx in range(len(prediction))]
 
     df = pd.DataFrame({'id':predict_id, 'answer': predict_result})
-    df.to_csv('result/qa_out.csv', index=False)
+    df.to_csv(args.test_output, index=False)
+    print("===== Inference Done! Result saved at", args.test_output,'=====')
+
 
 if __name__ == "__main__":
     inference()

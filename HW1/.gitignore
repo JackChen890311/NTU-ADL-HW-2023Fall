@@ -2,3 +2,4 @@ data/*
 output/*
 result/*
 __pycache__/*
+test.py
