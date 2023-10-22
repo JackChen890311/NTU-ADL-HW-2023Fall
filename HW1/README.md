@@ -5,6 +5,10 @@ R12922051 資工碩一 陳韋傑
  - For multuple choices: https://github.com/huggingface/transformers/blob/main/examples/pytorch/multiple-choice/run_swag_no_trainer.py
  - For extractive qa: https://github.com/huggingface/transformers/blob/main/examples/pytorch/question-answering/run_qa_no_trainer.py
 
+## Environment setting
+- Python = 3.9.18
+- Use `pip install -r requirement.txt` to install packages
+
 ## Steps to run inference
 - Inference code are in `infer_mc.py` and `infer_qa.py`
 - Please run `bash download.sh` first to download dataset and trained models
@@ -12,6 +16,7 @@ R12922051 資工碩一 陳韋傑
 - The dataset should store in `/data`, so you should replace `{path_to_context_json}` and `{path_to_test_json}` to `data/context.json` and `data/context.json`
 - When running inference, there will also be a generated file called `test_mc_out.json`, this file is the result from multiple choices and is used by extractive qa
 - Personally I run `bash infer.sh` when I need to do inference, where the paths are hardcoded in the file
+- If encountered **NotImplementedError: Loading a dataset cached in a LocalFileSystem is not supported.**, this is possibly due to `data/context.json` and `data/test.json` are cached in different environment, so please try to delete the cached file (I'm not sure why but fxck you hugging face)
 
 ## Steps to run trainning
 - Trainning code are in `train_mc.py` and `train_qa.py`

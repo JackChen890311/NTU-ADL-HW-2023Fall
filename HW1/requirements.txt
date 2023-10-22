@@ -1,11 +1,11 @@
-torch==1.12.1
-scikit-learn==1.1.2
 tqdm
 numpy
 pandas
-transformers==4.22.2
-datasets==2.5.2
-accelerate==0.13.0
 evaluate
 matplotlib
 gdown
+torch==1.12.1
+scikit-learn==1.1.2
+transformers==4.22.2
+datasets==2.5.2
+accelerate==0.13.0
