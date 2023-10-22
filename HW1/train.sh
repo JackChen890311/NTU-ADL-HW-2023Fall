@@ -1,5 +1,5 @@
 #!/bin/bash
-python train_mc.py \
+python src/train_mc.py \
     --model_type bert \
     --tokenizer_name bert-base-chinese \
     --train_file data/train.json \
@@ -15,7 +15,7 @@ python train_mc.py \
     # --debug \
     # --dataset_name swag
 
-python train_qa.py \
+python src/train_qa.py \
     --model_type bert \
     --tokenizer_name bert-base-chinese \
     --train_file data/train.json \

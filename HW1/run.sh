@@ -1,5 +1,5 @@
 #!/bin/bash
-python infer_mc.py \
+python src/infer_mc.py \
     --model_name_or_path model_mc/ \
     --tokenizer_name model_mc/ \
     --test_file $2 \
@@ -8,7 +8,7 @@ python infer_mc.py \
     --max_seq_length 512 \
     --per_device_eval_batch_size 64 \
 
-python infer_qa.py \
+python src/infer_qa.py \
     --model_name_or_path model_qa \
     --tokenizer_name model_qa \
     --test_file test_mc_out.json \
