@@ -113,9 +113,10 @@ def inference_part(args, model, tokenizer, eval_dataloader):
             "max_length": args.val_max_target_length,
             "num_beams": args.num_beams,
         }
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     model.eval()
     model = model.to(device)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     for batch in tqdm(eval_dataloader):
         batch = {k: v.to(device) for k, v in batch.items()}
