@@ -1,0 +1,5 @@
+data/*
+output/*
+__pycache__/*
+tw_rouge/tw_rouge.egg-info/*
+tw_rouge/tw_rouge/__pycache__/*
