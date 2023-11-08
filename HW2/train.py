@@ -18,18 +18,15 @@ Fine-tuning a 🤗 Transformers model on summarization.
 """
 # You can also adapt this script on your own summarization task. Pointers for this are left as comments.
 
-import argparse
 import json
 import logging
 import math
 import os
-import random
 from pathlib import Path
 
 import datasets
 import evaluate
 import nltk
-import numpy as np
 import torch
 from accelerate import Accelerator
 from accelerate.logging import get_logger
@@ -468,9 +465,10 @@ def main():
         model.eval()
         inference_part(args, model, tokenizer, eval_dataloader)
         
-        args.reference = args.validation_file
-        args.submission = args.output_file
-        score = eval(args)
+        try:
+            score = eval(args.validation_file, args.output_file)
+        except:
+            score = {'rouge-1': {'f': 0.0}, 'rouge-2': {'f': 0.0}, 'rouge-l': {'f': 0.0}}
         print('Epoch:', epoch, 'Rouge:', score)
 
         LOSS.append(total_loss.item() / len(train_dataloader))

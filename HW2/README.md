@@ -11,10 +11,9 @@ R12922051 資工碩一 陳韋傑
 - Please also install matplotlib if plotting is needed
 
 ## Steps to run inference
-- Inference code are in `infer_mc.py`
-- Please run `bash download.sh` first to download dataset and trained models
+- Inference code are in `infer.py`
+- Please run `bash download.sh` first to download trained models
 - Then run `bash run.sh {path_to_input_jsonl} {path_to_output_jsonl}` and replace the paths as you wish
-- The dataset should store in `/data`, so you should replace `{path_to_input_jsonl}` to `data/public.jsonl` or any path you wish
 
 ## Steps to run trainning
 - Trainning code are in `train.py`

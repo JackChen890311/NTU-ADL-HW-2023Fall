@@ -1,5 +1,6 @@
 import nltk
 import torch
+import jsonlines
 import numpy as np
 from tqdm import tqdm
 from datasets import load_dataset
@@ -112,6 +113,10 @@ def inference_part(args, model, tokenizer, eval_dataloader):
     gen_kwargs = {
             "max_length": args.val_max_target_length,
             "num_beams": args.num_beams,
+            "do_sample": args.do_sample,
+            "temperature": args.temperature,
+            "top_k": args.top_k,
+            "top_p": args.top_p,
         }
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -154,10 +159,14 @@ def inference_part(args, model, tokenizer, eval_dataloader):
             for id, pred in zip(original_ids, decoded_preds):
                 all_ids.append(str(id.detach().cpu().item()))
                 all_preds.append(pred)
+                
+    # with open(args.output_file, 'w') as f:
+    #     for id, pred in zip(all_ids, all_preds):
+    #         f.write(str({"title": pred, "id": id}).replace("'", '"')+'\n')
 
-    with open(args.output_file, 'w') as f:
-        for id, pred in zip(all_ids, all_preds):
-            f.write(str({"title": pred, "id": id}).replace("'", '"')+'\n')
+    with jsonlines.open(args.output_file, mode='w') as writer:
+            for id, pred in zip(all_ids, all_preds):
+                writer.write({"title": pred, "id": id})
 
 
 if __name__ == '__main__':

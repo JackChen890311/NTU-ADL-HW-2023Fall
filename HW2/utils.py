@@ -31,6 +31,31 @@ def parse_args():
         help="The name of the output file path.",
     )
     parser.add_argument(
+        "--do_sample",
+        action="store_true",
+        default=False,
+        help="Whether or not to use sampling.",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=1.0,
+        help="Temperature for sampling.",
+    )
+    parser.add_argument(
+        "--top_k",
+        type=int,
+        default=50,
+        help="Top k for sampling.",
+    )
+    parser.add_argument(
+        "--top_p",
+        type=float,
+        default=1.0,
+        help="Top p for sampling.",
+    )
+
+    parser.add_argument(
         "--dataset_name",
         type=str,
         default=None,

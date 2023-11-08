@@ -4,14 +4,15 @@ python3 train.py \
     --dataset_config "3.0.0" \
     --source_prefix "summarize: " \
     --preprocessing_num_workers 16 \
-    --output_dir ./output/3/ \
-    --output_file ./output/3/public_result.jsonl \
+    --output_dir ./output/6/ \
+    --output_file ./output/6/public_result.jsonl \
     --text_column maintext \
     --summary_column title \
-    --train_file data/train.jsonl \
-    --validation_file data/public.jsonl \
-    --num_train_epochs 20 \
+    --train_file ./data/train.jsonl \
+    --validation_file ./data/public.jsonl \
+    --num_train_epochs 15 \
     --num_beams 3 \
+    --learning_rate 3e-4 \
     --per_device_train_batch_size 8 \
     --per_device_eval_batch_size 8 \
     --gradient_accumulation_steps 1 \
