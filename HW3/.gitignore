@@ -1,0 +1,6 @@
+Taiwan-LLM-7B-v2.0-chat/*
+model/*
+output/*
+data/*
+bitsandbytes/*
+__pycache__/*
