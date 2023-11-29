@@ -4,7 +4,8 @@ __pycache__/*
 
 data/*
 output/*
-adapter_model/*
+adapter_checkpoint/*
 
 loss.png
 plot.png
+output.json

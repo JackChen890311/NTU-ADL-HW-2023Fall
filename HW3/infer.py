@@ -10,9 +10,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--base_model',type=str,default="Taiwan-LLM-7B-v2.0-chat")
-    parser.add_argument('--peft_model',type=str,default="output/step1000_8bits_lr/checkpoint-1000")
+    parser.add_argument('--peft_model',type=str,default="adapter_checkpoint")
     parser.add_argument('--input_json',type=str,default="data/public_test.json")
-    parser.add_argument('--output_json',type=str,default="output/output.json")
+    parser.add_argument('--output_json',type=str,default="output.json")
     args = parser.parse_args()
 
     bnb_config = get_bnb_config()
@@ -32,8 +32,10 @@ if __name__ == '__main__':
         inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
         outputs = model.generate(**inputs, max_new_tokens=128)
         result_dict['id'] = data[i]['id']
-        result_dict['output'] = tokenizer.decode(outputs[0], skip_special_tokens=True)[len(prompt):]
+        result_dict['output'] = tokenizer.decode(outputs[0], skip_special_tokens=True)[len(prompt):].strip()
         result.append(result_dict)
+        if i == 10:
+            break
 
     # print(result)
     with open(args.output_json, "w") as f:
