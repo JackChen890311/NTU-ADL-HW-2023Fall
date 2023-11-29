@@ -9,3 +9,4 @@ adapter_checkpoint/*
 loss.png
 plot.png
 output.json
+prediction.json

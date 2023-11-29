@@ -34,8 +34,6 @@ if __name__ == '__main__':
         result_dict['id'] = data[i]['id']
         result_dict['output'] = tokenizer.decode(outputs[0], skip_special_tokens=True)[len(prompt):].strip()
         result.append(result_dict)
-        if i == 10:
-            break
 
     # print(result)
     with open(args.output_json, "w") as f:
