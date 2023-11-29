@@ -1,24 +1,31 @@
 python qlora.py \
     --model_name_or_path Taiwan-LLM-7B-v2.0-chat \
-    --output_dir ./output \
+    --output_dir ./output/step2000_8bits_lowerlr \
     --dataset data/train.json \
     --dataset_format self-defined \
+    --bits 8 \
+    --lora_dropout 0.1 \
+    --warmup_ratio 0 \
+    --learning_rate 1e-5 \
+    --weight_decay 1e-7 \
     --do_train True \
-    --do_eval False \
+    --do_eval True \
+    --do_predict False \
     --do_mmlu_eval False \
     --source_max_len 384 \
     --target_max_len 128 \
-    --per_device_train_batch_size 4 \
-    --per_device_eval_batch_size 4 \
-    --gradient_accumulation_steps 4 \
-    --logging_steps 1 \
-    --max_steps 10 \
+    --per_device_train_batch_size 16 \
+    --per_device_eval_batch_size 16 \
+    --gradient_accumulation_steps 1 \
+    --logging_steps 20 \
+    --max_steps 1000 \
     --save_strategy steps \
     --data_seed 42 \
-    --save_steps 1 \
+    --save_steps 100 \
     --save_total_limit 10 \
     --evaluation_strategy steps \
-    --eval_dataset_size 1024 \
-    --max_eval_samples 100 \
-    --eval_steps 1 \
+    --eval_dataset_size 2000 \
+    --max_eval_samples 2000 \
+    --eval_steps 100 \
     --optim paged_adamw_32bit \
+    --max_memory_MB 220000

@@ -32,7 +32,7 @@ from transformers import (
 
 )
 from datasets import load_dataset, Dataset
-# import evaluate
+import evaluate
 
 from peft import (
     prepare_model_for_kbit_training,
@@ -42,6 +42,7 @@ from peft import (
 )
 from peft.tuners.lora import LoraLayer
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
+from utils import get_prompt, get_bnb_config
 
 
 def is_ipex_available():
@@ -315,15 +316,16 @@ def get_accelerate_model(args, checkpoint_dir):
         load_in_8bit=args.bits == 8,
         device_map=device_map,
         max_memory=max_memory,
-        quantization_config=BitsAndBytesConfig(
-            load_in_4bit=args.bits == 4,
-            load_in_8bit=args.bits == 8,
-            llm_int8_threshold=6.0,
-            llm_int8_has_fp16_weight=False,
-            bnb_4bit_compute_dtype=compute_dtype,
-            bnb_4bit_use_double_quant=args.double_quant,
-            bnb_4bit_quant_type=args.quant_type,
-        ),
+        # quantization_config=BitsAndBytesConfig(
+        #     load_in_4bit=args.bits == 4,
+        #     load_in_8bit=args.bits == 8,
+        #     llm_int8_threshold=6.0,
+        #     llm_int8_has_fp16_weight=False,
+        #     bnb_4bit_compute_dtype=compute_dtype,
+        #     bnb_4bit_use_double_quant=args.double_quant,
+        #     bnb_4bit_quant_type=args.quant_type,
+        # ),
+        quantization_config=get_bnb_config(),
         torch_dtype=(torch.float32 if args.fp16 else (torch.bfloat16 if args.bf16 else torch.float32)),
         trust_remote_code=args.trust_remote_code,
         use_auth_token=args.use_auth_token
@@ -368,9 +370,7 @@ def get_accelerate_model(args, checkpoint_dir):
         tokenizer.add_special_tokens({
                 "eos_token": tokenizer.convert_ids_to_tokens(model.config.eos_token_id),
                 "bos_token": tokenizer.convert_ids_to_tokens(model.config.bos_token_id),
-                # "unk_token": tokenizer.convert_ids_to_tokens(
-                #     model.config.pad_token_id if model.config.pad_token_id != -1 else tokenizer.pad_token_id
-                # ),
+                "unk_token": tokenizer.convert_ids_to_tokens(tokenizer.pad_token_id),
         })
     
     if not args.full_finetune:
@@ -627,7 +627,6 @@ def make_data_module(tokenizer: transformers.PreTrainedTokenizer, args) -> Dict:
             # leave as is
             pass
         elif dataset_format == 'self-defined':
-            from utils import get_prompt
             dataset = dataset.map(lambda x: {
                 'input': [get_prompt(instruction) for instruction in  x['instruction']],
                 'output': x['output'],

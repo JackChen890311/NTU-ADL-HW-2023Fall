@@ -4,7 +4,7 @@ from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import json
 from peft import PeftModel
-from utils import get_prompt, get_bnb_config
+from utils import get_prompt, get_bnb_config, get_few_shot_prompt
 import argparse
 
 
@@ -13,6 +13,7 @@ def perplexity(
 ):
     data_size = len(data)
     instructions = [get_prompt(x["instruction"]) for x in data]
+    # instructions = [get_few_shot_prompt(x["instruction"], idx, data, 5) for idx, x in enumerate(data)]
     outputs = [x["output"] for x in data]
 
     # Tokenize data
