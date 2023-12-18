@@ -1,30 +1,18 @@
-python train.py \
+#!bin/bash
+python3 train.py \
     --model_name_or_path Taiwan-LLM-7B-v2.0-chat \
-    --output_dir ./output/step2000_8bits_lowerlr \
+    --output_dir ./output/4bits \
     --dataset data/train.json \
     --dataset_format self-defined \
-    --bits 8 \
-    --warmup_ratio 0 \
-    --learning_rate 3e-5 \
-    --weight_decay 1e-7 \
-    --do_train True \
-    --do_eval True \
-    --do_predict False \
-    --do_mmlu_eval False \
-    --source_max_len 384 \
-    --target_max_len 128 \
-    --per_device_train_batch_size 16 \
-    --per_device_eval_batch_size 16 \
-    --gradient_accumulation_steps 1 \
-    --logging_steps 20 \
+    --bits 4 \
+    --bf16 \
+    --do_train \
     --max_steps 1000 \
-    --save_strategy steps \
-    --data_seed 42 \
     --save_steps 100 \
-    --save_total_limit 10 \
-    --evaluation_strategy steps \
-    --eval_dataset_size 100 \
-    --max_eval_samples 100 \
-    --eval_steps 100 \
-    --optim paged_adamw_32bit \
-    --max_memory_MB 220000
+    --per_device_train_batch_size 8 \
+    --learning_rate 3e-5 \
+    --max_train_epochs 3 \
+    --evaluation_strategy "steps" \
+    --eval_steps "100" \
+    --gradient_accumulation_steps 2 \
+    --overwrite_output_dir \

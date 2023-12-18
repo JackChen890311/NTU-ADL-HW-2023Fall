@@ -3,14 +3,14 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
-    statejson = 'output/step1000_8bits_lr/checkpoint-1000/trainer_state.json'
+    statejson = 'output/4bits/checkpoint-1000/trainer_state.json'
     with open(statejson, 'r') as f:
         data = json.load(f)
 
     data = data['log_history']
     
     per_step = list(range(100, 1001, 100))
-    perplexity = [4.3272, 4.2119, 4.0973, 4.0841, 4.03670, 4.0419, 4.0322, 4.0332, 3.9943, 3.9941]
+    perplexity = [4.3857, 4.1677, 4.1285, 4.0843, 4.0755, 4.0106, 3.9645, 3.9821, 3.9325, 3.8961]
     
     steps = [d['step'] for d in data if 'loss' in d]
     losses = [d['loss'] for d in data if 'loss' in d]
@@ -24,6 +24,5 @@ if __name__ == '__main__':
     plt.xlabel('Steps')
     plt.ylabel('Loss / Perplexity')
     plt.title('Loss & Perplexity Plot')
-    plt.show()
     plt.legend()
     plt.savefig('plot.png')

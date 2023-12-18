@@ -1,4 +1,4 @@
 #!bin/bash
 mkdir adapter_checkpoint
-gdown -O adapter_checkpoint/adapter_config.json 19z2UBD64JIBNe6BxOP6uGFCkqakqP6ax
-gdown -O adapter_checkpoint/adapter_model.bin 1K483Hbu9S_EDYwkngtolrb5gPX7UXpon
+gdown -O adapter_checkpoint/adapter_config.json 1YvnS6hpvwDRmeLrHXiAmENtGrZ1AQIWJ
+gdown -O adapter_checkpoint/adapter_model.bin 15zTZC2OR_nlyHAbOZE6Ecrd-mKr4TPy1
